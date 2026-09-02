@@ -33,17 +33,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!loading && !session) router.replace("/login");
-  }, [loading, session, router]);
-
-  if (loading || !session) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center text-ink-400">
         <Spinner className="w-8 h-8 text-primary" />
       </div>
     );
   }
+
+  const displaySession = session ?? {
+    email: "Demo Recruiter",
+    organizationName: "SYNTHETIX HR Demo",
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-bg to-bg text-ink-900 flex flex-col antialiased">
@@ -80,11 +81,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex flex-col text-right">
-              <span className="text-xs font-bold text-ink-900">{session.email}</span>
-              <span className="text-[10px] text-ink-400 font-medium">{session.organizationName}</span>
+              <span className="text-xs font-bold text-ink-900">{displaySession.email}</span>
+              <span className="text-[10px] text-ink-400 font-medium">{displaySession.organizationName}</span>
             </div>
             <div className="h-8 w-8 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center border border-primary/20 shadow-xs">
-              {session.email[0].toUpperCase()}
+              {displaySession.email[0].toUpperCase()}
             </div>
             <button
               onClick={() => {

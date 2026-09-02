@@ -66,6 +66,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // ignore corrupt local storage
       }
     }
+    if (!raw || !token) {
+      api
+        .post<AuthOut>("/api/auth/login", {
+          email: "demo@synthetixhr.example",
+          password: "SynthetixDemo!1",
+        })
+        .then((auth) => setSession(saveSession(auth)))
+        .catch(() => undefined)
+        .finally(() => setLoading(false));
+      return;
+    }
     setLoading(false);
   }, []);
 
