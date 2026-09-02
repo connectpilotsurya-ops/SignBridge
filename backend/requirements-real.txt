@@ -1,0 +1,6 @@
+# Real-mode adapters — only needed once you set GEMINI_API_KEY / QDRANT_URL /
+# SUPABASE_URL in .env and flip DEMO_MODE=false. Not required to run the demo.
+google-generativeai==0.8.2
+qdrant-client==1.11.1
+sentence-transformers==3.1.1
+supabase==2.7.4
