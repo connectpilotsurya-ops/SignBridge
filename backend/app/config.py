@@ -73,7 +73,10 @@ class Settings(BaseSettings):
 
     @property
     def persistence_mode(self) -> str:
-        return "real" if (not self.demo_mode and self.supabase_url) else "sqlite"
+        """'real' (Supabase) if DEMO_MODE is false or USE_SUPABASE is true AND Supabase URL is present."""
+        if (not self.demo_mode or os.environ.get("USE_SUPABASE") == "true") and self.supabase_url:
+            return "real"
+        return "sqlite"
 
 
 @lru_cache

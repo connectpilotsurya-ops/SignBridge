@@ -13,7 +13,8 @@ class SupabaseFileStorage:
     def __init__(self, settings: Settings):
         from supabase import create_client
 
-        self._client = create_client(settings.supabase_url, settings.supabase_service_role_key)
+        key = settings.supabase_service_role_key or settings.supabase_anon_key
+        self._client = create_client(settings.supabase_url, key)
 
     def save(self, org_id: str, file_bytes: bytes, suffix: str = ".pdf") -> str:
         path = f"{org_id}/{uuid.uuid4()}{suffix}"

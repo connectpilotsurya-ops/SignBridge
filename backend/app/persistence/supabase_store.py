@@ -27,7 +27,8 @@ class SupabaseStore:
     def __init__(self, settings: Settings):
         from supabase import create_client
 
-        self._client = create_client(settings.supabase_url, settings.supabase_service_role_key)
+        key = settings.supabase_service_role_key or settings.supabase_anon_key
+        self._client = create_client(settings.supabase_url, key)
 
     # ---- organizations / profiles -------------------------------------------
     def create_organization(self, name: str) -> str:
