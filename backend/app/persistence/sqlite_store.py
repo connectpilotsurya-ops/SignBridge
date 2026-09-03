@@ -156,6 +156,37 @@ create table if not exists candidate_selections (
     selected_at text not null
 );
 
+create table if not exists interview_questions (
+    id text primary key,
+    org_id text not null,
+    application_id text not null,
+    claim_id text,
+    requirement_id text,
+    question text not null,
+    purpose text,
+    evidence_gap text,
+    verification_category text not null,
+    expected_evidence text default '',
+    priority integer default 1,
+    status text not null default 'generated',
+    recruiter_notes text,
+    created_at text not null,
+    updated_at text not null
+);
+
+create table if not exists interview_verifications (
+    id text primary key,
+    org_id text not null,
+    application_id text not null,
+    claim_id text,
+    question_id text not null,
+    recruiter_id text not null,
+    verification_status text not null,
+    verification_notes text default '',
+    verified_at text not null,
+    created_at text not null
+);
+
 create table if not exists audit_log (
     id text primary key,
     org_id text not null,
@@ -172,6 +203,8 @@ create index if not exists idx_resumes_org on resumes(org_id);
 create index if not exists idx_applications_org_job on applications(org_id, job_id);
 create index if not exists idx_analysis_runs_application on analysis_runs(application_id);
 create index if not exists idx_audit_org on audit_log(org_id);
+create index if not exists idx_questions_app on interview_questions(application_id);
+create index if not exists idx_verifications_app on interview_verifications(application_id);
 """
 
 
@@ -302,6 +335,19 @@ class SQLiteStore:
             return conn.execute(
                 "select * from jobs where org_id=? order by created_at desc", (org_id,)
             ).fetchall()
+
+    def delete_job(self, org_id: str, job_id: str) -> bool:
+        with self._conn() as conn:
+            apps = conn.execute("select id from applications where job_id=? and org_id=?", (job_id, org_id)).fetchall()
+            for app in apps:
+                app_id = app["id"]
+                conn.execute("delete from analysis_runs where application_id=? and org_id=?", (app_id, org_id))
+                conn.execute("delete from candidate_selections where application_id=? and org_id=?", (app_id, org_id))
+                conn.execute("delete from recruiter_decisions where application_id=? and org_id=?", (app_id, org_id))
+            conn.execute("delete from applications where job_id=? and org_id=?", (job_id, org_id))
+            conn.execute("delete from ranking_snapshots where job_id=? and org_id=?", (job_id, org_id))
+            cur = conn.execute("delete from jobs where id=? and org_id=?", (job_id, org_id))
+            return cur.rowcount > 0
 
     # ---- candidates / resumes / applications ----------------------------------
     def create_candidate(self, org_id: str, display_name: str = "", email: str = "") -> str:
@@ -530,3 +576,73 @@ class SQLiteStore:
         query += " order by created_at desc"
         with self._conn() as conn:
             return conn.execute(query, params).fetchall()
+
+    # ---- interview verification engine -------------------------------------------
+    def save_verification_questions(self, org_id: str, application_id: str, questions: list) -> None:
+        with self._conn() as conn:
+            for q in questions:
+                q_id = getattr(q, "id", None) or _new_id()
+                conn.execute(
+                    """insert or replace into interview_questions
+                       (id, org_id, application_id, claim_id, requirement_id, question, purpose,
+                        evidence_gap, verification_category, expected_evidence, priority, status,
+                        recruiter_notes, created_at, updated_at)
+                       values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        q_id, org_id, application_id,
+                        getattr(q, "claim_id", None), getattr(q, "requirement_id", None),
+                        q.question, q.purpose, q.evidence_gap,
+                        q.verification_category.value if hasattr(q.verification_category, "value") else str(q.verification_category),
+                        q.expected_evidence or "", getattr(q, "priority", 1),
+                        q.status.value if hasattr(q.status, "value") else str(q.status),
+                        getattr(q, "recruiter_notes", None),
+                        getattr(q, "created_at", _now()), _now(),
+                    ),
+                )
+
+    def list_verification_questions(self, org_id: str, application_id: str) -> list[sqlite3.Row]:
+        with self._conn() as conn:
+            return conn.execute(
+                "select * from interview_questions where org_id=? and application_id=? order by priority asc, created_at asc",
+                (org_id, application_id),
+            ).fetchall()
+
+    def update_verification_question(self, org_id: str, question_id: str, status: str | None = None, recruiter_notes: str | None = None) -> sqlite3.Row | None:
+        with self._conn() as conn:
+            if status is not None:
+                conn.execute(
+                    "update interview_questions set status=?, updated_at=? where id=? and org_id=?",
+                    (status, _now(), question_id, org_id),
+                )
+            if recruiter_notes is not None:
+                conn.execute(
+                    "update interview_questions set recruiter_notes=?, updated_at=? where id=? and org_id=?",
+                    (recruiter_notes, _now(), question_id, org_id),
+                )
+            return conn.execute("select * from interview_questions where id=? and org_id=?", (question_id, org_id)).fetchone()
+
+    def save_verification_record(self, org_id: str, application_id: str, claim_id: str | None, question_id: str, recruiter_id: str, status: str, notes: str = "") -> sqlite3.Row:
+        rec_id = _new_id()
+        now_str = _now()
+        with self._conn() as conn:
+            conn.execute(
+                """insert into interview_verifications
+                   (id, org_id, application_id, claim_id, question_id, recruiter_id, verification_status, verification_notes, verified_at, created_at)
+                   values (?,?,?,?,?,?,?,?,?,?)""",
+                (rec_id, org_id, application_id, claim_id, question_id, recruiter_id, status, notes, now_str, now_str),
+            )
+            # Update question status to verified/not_verified
+            q_status = "verified" if status in ("verified", "partially_verified") else "not_verified"
+            conn.execute(
+                "update interview_questions set status=?, recruiter_notes=?, updated_at=? where id=? and org_id=?",
+                (q_status, notes, now_str, question_id, org_id),
+            )
+            return conn.execute("select * from interview_verifications where id=?", (rec_id,)).fetchone()
+
+    def list_verification_records(self, org_id: str, application_id: str) -> list[sqlite3.Row]:
+        with self._conn() as conn:
+            return conn.execute(
+                "select * from interview_verifications where org_id=? and application_id=? order by created_at desc",
+                (org_id, application_id),
+            ).fetchall()
+

@@ -100,12 +100,55 @@ class IntegrityCategory(str, Enum):
 class IntegrityFlagType(str, Enum):
     HIDDEN_TEXT = "hidden_text"
     NEAR_WHITE_TEXT = "near_white_text"
+    WHITE_TEXT = "white_text"
     TINY_FONT = "tiny_font"
-    SUSPICIOUS_FOOTER = "suspicious_footer"
     OFF_PAGE_TEXT = "off_page_text"
+    SUSPICIOUS_FOOTER = "suspicious_footer"
+    FOOTER_KEYWORD_STUFFING = "footer_keyword_stuffing"
     HIGH_KEYWORD_DENSITY = "high_keyword_density"
     REPEATED_KEYWORDS = "repeated_keywords"
+    REPEATED_KEYWORD_STUFFING = "repeated_keyword_stuffing"
     SKILLS_ONLY_CLUSTER = "skills_only_cluster"
+    SKILLS_ONLY_PADDING = "skills_only_padding"
+
+
+class VerificationCategory(str, Enum):
+    OWNERSHIP = "ownership"
+    EXPERIENCE = "experience"
+    DEPTH = "depth"
+    SCALE = "scale"
+    DECISION_MAKING = "decision_making"
+    TROUBLESHOOTING = "troubleshooting"
+    ARCHITECTURE = "architecture"
+    IMPACT = "impact"
+
+
+class EvidenceGapType(str, Enum):
+    MISSING_PRODUCTION_EVIDENCE = "missing_production_evidence"
+    MISSING_OWNERSHIP_EVIDENCE = "missing_ownership_evidence"
+    MISSING_SCALE_EVIDENCE = "missing_scale_evidence"
+    MISSING_PROJECT_DETAILS = "missing_project_details"
+    CLAIMED_EXPERTISE_EXCEEDS_EVIDENCE = "claimed_expertise_exceeds_evidence"
+    HIDDEN_TEXT_ONLY = "hidden_text_only"
+    TRANSFERABLE_ONLY = "transferable_only"
+    UNCLEAR_DURATION = "unclear_duration"
+    CONTRADICTORY_INFORMATION = "contradictory_information"
+
+
+class QuestionStatus(str, Enum):
+    GENERATED = "generated"
+    REVIEWED = "reviewed"
+    ASKED = "asked"
+    VERIFIED = "verified"
+    NOT_VERIFIED = "not_verified"
+    SKIPPED = "skipped"
+
+
+class VerificationStatus(str, Enum):
+    VERIFIED = "verified"
+    PARTIALLY_VERIFIED = "partially_verified"
+    NOT_VERIFIED = "not_verified"
+    INCONCLUSIVE = "inconclusive"
 
 
 class RelationshipType(str, Enum):

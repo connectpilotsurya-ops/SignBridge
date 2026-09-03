@@ -2,51 +2,62 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import type { CandidateRow, JobOut } from "@/types/api";
+import type { CandidateSummary, JobOut } from "@/types/api";
 import {
   Button,
   Card,
   CandidateStatusBadge,
   EmptyState,
+  IntegrityBadge,
   PageHeader,
   Pill,
+  ScoreGauge,
   Spinner,
 } from "@/components/ui";
+
+interface FileBatchStatus {
+  fileName: string;
+  sizeBytes: number;
+  status: "queued" | "uploading" | "analyzing" | "completed" | "error";
+  applicationId?: string;
+  error?: string;
+}
 
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const [job, setJob] = useState<JobOut | null>(null);
-  const [candidates, setCandidates] = useState<CandidateRow[] | null>(null);
+  const [candidates, setCandidates] = useState<CandidateSummary[] | null>(null);
   const [blindMode, setBlindMode] = useState(false);
+
   const [analyzing, setAnalyzing] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [fileBatch, setFileBatch] = useState<FileBatchStatus[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadJob = useCallback(() => {
+  function loadJob() {
     api
       .get<JobOut>(`/api/jobs/${jobId}`)
-      .then(setJob)
-      .catch((e) => setError(e.message));
-  }, [jobId]);
+      .then((data) => setJob(data))
+      .catch((err) => setError(err.message));
+  }
 
-  const loadCandidates = useCallback(() => {
+  function loadCandidates() {
     api
-      .get<CandidateRow[]>(`/api/jobs/${jobId}/candidates?blind=${blindMode}`)
-      .then(setCandidates)
-      .catch((e) => setError(e.message));
-  }, [jobId, blindMode]);
+      .get<CandidateSummary[]>(`/api/jobs/${jobId}/candidates?blind=${blindMode}`)
+      .then((data) => setCandidates(data))
+      .catch((err) => setError(err.message));
+  }
 
   useEffect(() => {
     loadJob();
-  }, [loadJob]);
+  }, [jobId]);
 
   useEffect(() => {
     loadCandidates();
-  }, [loadCandidates]);
+  }, [jobId, blindMode]);
 
   async function handleAnalyze() {
     setAnalyzing(true);
@@ -61,24 +72,51 @@ export default function JobDetailPage() {
     }
   }
 
-  async function handleUpload(files: FileList | null) {
-    if (!files || files.length === 0) return;
+  async function handleBatchUpload(filesList: FileList | null) {
+    if (!filesList || filesList.length === 0) return;
+    const filesArr = Array.from(filesList);
+
+    // Initialize batch file status queue
+    const batchQueue: FileBatchStatus[] = filesArr.map((f) => ({
+      fileName: f.name,
+      sizeBytes: f.size,
+      status: "queued",
+    }));
+    setFileBatch(batchQueue);
     setUploading(true);
-    setUploadErrors([]);
+
     const form = new FormData();
     form.append("job_id", jobId);
-    Array.from(files).forEach((f) => form.append("files", f));
+    filesArr.forEach((f) => form.append("files", f));
+
     try {
-      const result = await api.postForm<{ results: { file_name: string; application_id?: string; error?: string }[] }>(
-        "/api/resumes/upload",
-        form
+      // Mark as uploading/analyzing
+      setFileBatch((prev) => prev.map((item) => ({ ...item, status: "analyzing" })));
+
+      const response = await api.postForm<{
+        results: { file_name: string; application_id?: string; error?: string }[];
+      }>("/api/resumes/upload", form);
+
+      // Update individual file status based on separate analysis outcome
+      setFileBatch((prev) =>
+        prev.map((item) => {
+          const res = response.results.find((r) => r.file_name === item.fileName);
+          if (res?.error) {
+            return { ...item, status: "error", error: res.error };
+          }
+          return {
+            ...item,
+            status: "completed",
+            applicationId: res?.application_id,
+          };
+        })
       );
-      const failures = result.results.filter((r) => r.error).map((r) => `${r.file_name}: ${r.error}`);
-      setUploadErrors(failures);
+
       loadCandidates();
       loadJob();
     } catch (err) {
-      setUploadErrors([err instanceof ApiError ? err.message : "Upload failed."]);
+      setError(err instanceof ApiError ? err.message : "Batch upload failed.");
+      setFileBatch((prev) => prev.map((item) => ({ ...item, status: "error", error: "Upload failed" })));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -88,21 +126,22 @@ export default function JobDetailPage() {
   if (!job) {
     return (
       <div className="flex justify-center py-20 text-ink-400">
-        <Spinner className="w-6 h-6" />
+        <Spinner className="w-6 h-6 text-primary" />
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="max-w-4xl space-y-6">
       <PageHeader
         title={job.title}
         description={[job.department, job.location, job.experience_requirement].filter(Boolean).join(" · ")}
       />
 
-      {error && <p className="text-sm text-danger mb-4">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
-      <Card className="p-6 mb-6">
+      {/* Requirements Section */}
+      <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-semibold text-ink-900">Requirements</h2>
           {!job.requirements_analyzed && (
@@ -134,37 +173,107 @@ export default function JobDetailPage() {
         )}
       </Card>
 
+      {/* Multi-Resume Batch Upload Card */}
       {job.requirements_analyzed && (
-        <Card className="p-6 mb-6">
-          <h2 className="font-display font-semibold text-ink-900 mb-1">Upload resumes</h2>
-          <p className="text-sm text-ink-500 mb-4">
-            PDF only. Each resume is parsed, checked for manipulation, and scored against the
-            requirements above — synchronously, so results appear as soon as this finishes.
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-display font-semibold text-ink-900 flex items-center gap-2">
+              <span>📁</span> Multi-Resume Batch Upload
+            </h2>
+            <span className="text-xs font-bold text-primary bg-primary-soft px-2.5 py-1 rounded-full">
+              Multiple PDF Upload Enabled
+            </span>
+          </div>
+          <p className="text-xs text-ink-500 mb-4">
+            Select or drag & drop multiple PDF resumes at once. Each resume is parsed, checked for white-text manipulation, and analyzed **separately** into an isolated candidate profile.
           </p>
-          <div className="flex items-center gap-3">
+
+          {/* Upload Input & Dropzone styling */}
+          <div className="p-6 border-2 border-dashed border-primary/30 hover:border-primary rounded-2xl bg-indigo-50/20 flex flex-col items-center justify-center text-center transition-all">
             <input
               ref={fileInputRef}
               type="file"
               accept="application/pdf"
               multiple
               disabled={uploading}
-              onChange={(e) => handleUpload(e.target.files)}
-              className="text-sm text-ink-500 file:mr-3 file:rounded-xl file:border-0 file:bg-primary-soft file:text-primary file:px-3.5 file:py-2 file:text-sm file:font-medium hover:file:bg-primary/20"
+              onChange={(e) => handleBatchUpload(e.target.files)}
+              className="hidden"
+              id="multi-resume-input"
             />
-            {uploading && <Spinner className="w-4 h-4 text-primary" />}
+            <label
+              htmlFor="multi-resume-input"
+              className="cursor-pointer flex flex-col items-center space-y-2 group"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-primary-soft flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                <span className="text-xl">📄</span>
+              </div>
+              <span className="font-bold text-sm text-ink-900">
+                Choose Multiple PDF Resumes or Drag & Drop
+              </span>
+              <span className="text-xs text-ink-400">
+                Hold Ctrl / Cmd to select multiple files at once
+              </span>
+            </label>
           </div>
-          {uploadErrors.length > 0 && (
-            <ul className="mt-3 text-sm text-danger space-y-1">
-              {uploadErrors.map((e, i) => (
-                <li key={i}>{e}</li>
-              ))}
-            </ul>
+
+          {/* Active Batch Processing Status List */}
+          {fileBatch.length > 0 && (
+            <div className="mt-5 space-y-2 pt-4 border-t border-border">
+              <div className="text-xs font-bold text-ink-700 uppercase tracking-wider flex items-center justify-between">
+                <span>Batch Upload Queue ({fileBatch.length} Resumes)</span>
+                {uploading && (
+                  <span className="flex items-center gap-1.5 text-primary text-xs font-semibold">
+                    <Spinner className="w-3.5 h-3.5" /> Analyzing separately...
+                  </span>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                {fileBatch.map((f, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-base">📄</span>
+                      <span className="font-semibold text-ink-900 truncate">
+                        {f.fileName}
+                      </span>
+                      <span className="text-ink-400 text-[10px]">
+                        ({(f.sizeBytes / 1024).toFixed(0)} KB)
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {f.status === "analyzing" && (
+                        <span className="text-amber-600 font-bold flex items-center gap-1">
+                          <Spinner className="w-3 h-3 text-amber-600" /> Analyzing
+                        </span>
+                      )}
+                      {f.status === "completed" && (
+                        <span className="text-emerald-600 font-bold">
+                          ✓ Separate Analysis Ready
+                        </span>
+                      )}
+                      {f.status === "error" && (
+                        <span className="text-rose-600 font-bold">
+                          ✕ {f.error || "Failed"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </Card>
       )}
 
+      {/* Candidate List Header & Blind Mode */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-display font-semibold text-ink-900">Candidates</h2>
+        <h2 className="font-display font-semibold text-ink-900">
+          Analyzed Candidates Pool ({candidates?.length || 0})
+        </h2>
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-ink-500 cursor-pointer select-none">
             <input
@@ -186,10 +295,11 @@ export default function JobDetailPage() {
 
       {candidates && candidates.length === 0 && (
         <Card>
-          <EmptyState title="No candidates yet" description="Upload resumes above to start analysis." />
+          <EmptyState title="No candidates analyzed yet" description="Upload multiple resumes above to begin separate candidate analysis." />
         </Card>
       )}
 
+      {/* Individual Candidate Analysis Cards */}
       {candidates && candidates.length > 0 && (
         <div className="grid gap-3">
           {candidates.map((c) => (
@@ -198,28 +308,24 @@ export default function JobDetailPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-display font-semibold text-ink-900">{c.display_label}</h3>
+                      <h3 className="font-display font-semibold text-ink-900 text-base truncate">
+                        {c.display_label}
+                      </h3>
                       <CandidateStatusBadge status={c.status} />
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-ink-500 mt-1.5">
-                      <span>Match {c.match_score.toFixed(0)}</span>
-                      <span>Evidence {c.evidence_confidence.toFixed(0)}</span>
-                      <span>Integrity {c.document_integrity.toFixed(0)}</span>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-ink-500">
+                      <span>Integrity:</span>
+                      <IntegrityBadge category={c.integrity_category || "normal"} />
+                      <span>·</span>
+                      <span>Confidence: {(c.evidence_confidence * 100).toFixed(0)}%</span>
                     </div>
-                    {(c.top_strengths?.length || c.major_gaps?.length) && (
-                      <div className="flex flex-wrap gap-1.5 mt-2.5">
-                        {c.top_strengths?.map((s) => (
-                          <Pill key={`s-${s}`} tone="success">
-                            {s}
-                          </Pill>
-                        ))}
-                        {c.major_gaps?.map((g) => (
-                          <Pill key={`g-${g}`} tone="danger">
-                            {g}
-                          </Pill>
-                        ))}
-                      </div>
-                    )}
+                  </div>
+
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="text-right">
+                      <div className="text-xs text-ink-400 mb-0.5">Match Score</div>
+                      <ScoreGauge score={c.match_score} size={64} />
+                    </div>
                   </div>
                 </div>
               </Card>

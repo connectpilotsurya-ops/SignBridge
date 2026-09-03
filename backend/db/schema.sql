@@ -18,6 +18,51 @@
 
 create extension if not exists "pgcrypto";
 
+drop table if exists auth_tokens cascade;
+drop table if exists users cascade;
+drop table if exists interview_verifications cascade;
+drop table if exists interview_questions cascade;
+drop table if exists candidate_selections cascade;
+drop table if exists ranking_snapshots cascade;
+drop table if exists audit_log cascade;
+drop table if exists recruiter_decisions cascade;
+drop table if exists candidate_scores cascade;
+drop table if exists analysis_runs cascade;
+drop table if exists skill_relationships cascade;
+drop table if exists candidate_claims cascade;
+drop table if exists resume_evidence cascade;
+drop table if exists applications cascade;
+drop table if exists resumes cascade;
+drop table if exists candidates cascade;
+drop table if exists job_requirements cascade;
+drop table if exists jobs cascade;
+drop table if exists organization_members cascade;
+drop table if exists profiles cascade;
+drop table if exists organizations cascade;
+
+-- ── Authentication & Users ──────────────────────────────────────────────────
+
+create table users (
+    id uuid primary key default gen_random_uuid(),
+    email text not null unique,
+    password_hash text not null,
+    display_name text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create index idx_users_email on users(email);
+
+create table auth_tokens (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references users(id) on delete cascade,
+    token text not null unique,
+    expires_at timestamptz not null,
+    created_at timestamptz not null default now()
+);
+
+create index idx_auth_tokens_token on auth_tokens(token);
+
 -- ── Organizations & membership ──────────────────────────────────────────
 
 create table organizations (
@@ -28,7 +73,7 @@ create table organizations (
 );
 
 create table profiles (
-    id uuid primary key references auth.users(id) on delete cascade,
+    id uuid primary key references users(id) on delete cascade,
     email text not null,
     display_name text,
     created_at timestamptz not null default now()
@@ -294,6 +339,43 @@ create table candidate_selections (
 );
 
 create index idx_candidate_selections_application on candidate_selections(application_id);
+
+-- ── AI Interview Verification Engine ──────────────────────────────────────
+
+create table interview_questions (
+    id uuid primary key default gen_random_uuid(),
+    org_id uuid not null references organizations(id) on delete cascade,
+    application_id uuid not null references applications(id) on delete cascade,
+    claim_id text,
+    requirement_id text,
+    question text not null,
+    purpose text,
+    evidence_gap text,
+    verification_category text not null,
+    expected_evidence text default '',
+    priority integer default 1,
+    status text not null default 'generated' check (status in ('generated','reviewed','asked','verified','not_verified','skipped')),
+    recruiter_notes text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create index idx_interview_questions_application on interview_questions(application_id);
+
+create table interview_verifications (
+    id uuid primary key default gen_random_uuid(),
+    org_id uuid not null references organizations(id) on delete cascade,
+    application_id uuid not null references applications(id) on delete cascade,
+    claim_id text,
+    question_id uuid not null references interview_questions(id) on delete cascade,
+    recruiter_id uuid references profiles(id),
+    verification_status text not null check (verification_status in ('verified','partially_verified','not_verified','inconclusive')),
+    verification_notes text default '',
+    verified_at timestamptz not null default now(),
+    created_at timestamptz not null default now()
+);
+
+create index idx_interview_verifications_application on interview_verifications(application_id);
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- Row Level Security — org isolation (spec §7/§41)

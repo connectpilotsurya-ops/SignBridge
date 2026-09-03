@@ -106,6 +106,10 @@ class SupabaseStore:
         res = self._client.table("jobs").select("*").eq("org_id", org_id).order("created_at", desc=True).execute()
         return res.data
 
+    def delete_job(self, org_id: str, job_id: str) -> bool:
+        res = self._client.table("jobs").delete().eq("id", job_id).eq("org_id", org_id).execute()
+        return len(res.data) > 0
+
     # ---- candidates / resumes / applications ----------------------------------
     def create_candidate(self, org_id: str, display_name: str = "", email: str = "") -> str:
         res = self._client.table("candidates").insert(

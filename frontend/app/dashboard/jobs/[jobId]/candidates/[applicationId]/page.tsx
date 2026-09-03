@@ -17,6 +17,11 @@ import {
   TextArea,
 } from "@/components/ui";
 import { CapabilityGraph } from "@/components/CapabilityGraph";
+import { PdfInspector } from "@/components/PdfInspector";
+import { InterviewSimulator } from "@/components/InterviewSimulator";
+import { InterviewVerificationEngine } from "@/components/InterviewVerificationEngine";
+
+
 
 const FINAL_STATUS_OPTIONS: CandidateStatus[] = [
   "strong_match",
@@ -40,6 +45,7 @@ export default function CandidateDetailPage() {
   const { applicationId } = useParams<{ jobId: string; applicationId: string }>();
   const [analysis, setAnalysis] = useState<CandidateAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [blindMode, setBlindMode] = useState(true);
 
   const [decision, setDecision] = useState<"agree" | "override" | "needs_further_review">("agree");
   const [finalStatus, setFinalStatus] = useState<CandidateStatus>("potential_match");
@@ -49,13 +55,13 @@ export default function CandidateDetailPage() {
 
   useEffect(() => {
     api
-      .get<CandidateAnalysis>(`/api/applications/${applicationId}`)
+      .get<CandidateAnalysis>(`/api/applications/${applicationId}?blind=${blindMode}`)
       .then((data) => {
         setAnalysis(data);
         setFinalStatus(data.status);
       })
       .catch((e) => setError(e.message));
-  }, [applicationId]);
+  }, [applicationId, blindMode]);
 
   async function handleDecisionSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -75,7 +81,7 @@ export default function CandidateDetailPage() {
       setDecisionResult(
         `Recorded: ${result.original_status.replace("_", " ")} → ${result.final_status.replace("_", " ")}.`
       );
-      const refreshed = await api.get<CandidateAnalysis>(`/api/applications/${applicationId}`);
+      const refreshed = await api.get<CandidateAnalysis>(`/api/applications/${applicationId}?blind=${blindMode}`);
       setAnalysis(refreshed);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not submit decision.");
@@ -99,17 +105,32 @@ export default function CandidateDetailPage() {
     <div className="max-w-3xl">
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
             <h1 className="font-display text-2xl font-bold text-ink-900">{a.display_label}</h1>
             <CandidateStatusBadge status={a.status} />
             <Pill tone={a.analysis_mode === "real" ? "accent" : "neutral"}>
-              {a.analysis_mode === "real" ? "Gemini analysis" : "Deterministic mock analysis"}
+              {a.analysis_mode === "real" ? "Gemini Analysis" : "Zero-LLM Fast Pass"}
             </Pill>
           </div>
-          {a.blind_mode && (
-            <p className="text-xs text-ink-400 mt-1">Blind review mode is on — identity is hidden.</p>
-          )}
+          <label className="flex items-center gap-2 text-xs text-ink-500 font-medium cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={blindMode}
+              onChange={(e) => setBlindMode(e.target.checked)}
+              className="rounded border-border-strong text-primary focus:ring-primary/30"
+            />
+            Blind review mode ({blindMode ? "ON - Candidate #Count" : "OFF - Person Name Revealed"})
+          </label>
         </div>
+
+        <a
+          href={`/interview/${applicationId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm transition-all"
+        >
+          <span>🌐</span> Open Candidate AI Interview Portal (3 Probes) ↗
+        </a>
       </div>
 
       {a.analysis_incomplete && (
@@ -235,62 +256,31 @@ export default function CandidateDetailPage() {
         </div>
       </Section>
 
-      <Section title="Document integrity" subtitle="Deterministic forensic analysis — no LLM involved.">
-        <div className="flex items-center gap-3 mb-4">
-          <IntegrityBadge category={a.integrity.category} />
-          <span className="text-sm text-ink-500">Score {a.integrity.score}/100</span>
-        </div>
-        {a.integrity.flags.length === 0 ? (
-          <p className="text-sm text-ink-400">No integrity flags raised.</p>
-        ) : (
-          <div className="space-y-3">
-            {a.integrity.flags.map((f, i) => (
-              <div key={i} className="text-sm border border-border rounded-xl p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <Pill tone={f.severity === "high" ? "danger" : f.severity === "medium" ? "warning" : "neutral"}>
-                    {f.type.replace(/_/g, " ")}
-                  </Pill>
-                  <span className="text-xs text-ink-400">confidence {(f.confidence * 100).toFixed(0)}%</span>
-                </div>
-                <p className="text-ink-600">{f.description}</p>
-              </div>
-            ))}
-          </div>
-        )}
-        {a.integrity.suppressed_terms.length > 0 && (
-          <div className="mt-4">
-            <p className="text-xs font-medium text-ink-500 mb-1.5">
-              Terms excluded from matching due to suspicious placement:
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {a.integrity.suppressed_terms.map((t) => (
-                <Pill key={t} tone="danger">
-                  {t}
-                </Pill>
-              ))}
-            </div>
-          </div>
-        )}
+      <Section title="Document Integrity & Forensic Inspection" subtitle="PyMuPDF forensic layer checks — zero LLM involvement.">
+        <PdfInspector integrity={a.integrity} />
       </Section>
 
-      <Section title="Capability graph" subtitle="A structural view of how each skill connects to a requirement and its supporting evidence.">
+      <Section title="Capability Graph Visualizer" subtitle="A structural view of how each skill connects to a requirement and its supporting evidence.">
         <CapabilityGraph graph={a.capability_graph} />
       </Section>
 
       {a.interview_questions.length > 0 && (
-        <Section title="Suggested interview questions" subtitle="Targeted at the requirements with the weakest direct evidence.">
-          <div className="space-y-4">
-            {a.interview_questions.map((q, i) => (
-              <div key={i}>
-                <p className="text-sm font-medium text-ink-900">{q.question}</p>
-                <p className="text-xs text-ink-400 mt-0.5">
-                  {q.requirement} — {q.why_this_question}
-                </p>
-              </div>
-            ))}
-          </div>
+        <Section title="AI Candidate Sounding Board" subtitle="Targeted at the requirements with the weakest direct evidence.">
+          <InterviewSimulator questions={a.interview_questions} candidateName={a.display_label} />
         </Section>
       )}
+
+      <div className="mb-6">
+        <InterviewVerificationEngine
+          applicationId={applicationId}
+          onDecisionUpdated={() => {
+            api
+              .get<CandidateAnalysis>(`/api/applications/${applicationId}`)
+              .then((data) => setAnalysis(data))
+              .catch(() => {});
+          }}
+        />
+      </div>
 
       <Section title="Recruiter decision" subtitle="The system's assessment is never overwritten — your call is recorded alongside it, permanently auditable.">
         <form onSubmit={handleDecisionSubmit} className="space-y-4">

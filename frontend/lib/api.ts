@@ -70,6 +70,7 @@ export const api = {
     }),
   postForm: <T>(path: string, form: FormData) =>
     request<T>(path, { method: "POST", body: form }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 
 export { API_BASE_URL };

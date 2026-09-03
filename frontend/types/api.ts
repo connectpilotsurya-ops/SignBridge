@@ -65,11 +65,14 @@ export interface CandidateRow {
   match_score: number;
   evidence_confidence: number;
   document_integrity: number;
+  integrity_category?: "normal" | "suspicious" | "high_risk";
   status: CandidateStatus;
   top_strengths?: string[];
   major_gaps?: string[];
   resume_status: ResumeStatus;
 }
+
+export type CandidateSummary = CandidateRow;
 
 // Spec update "ranking, not shortlisting" — a descriptive ranking tier,
 // never a hiring decision. Deliberately distinct from CandidateStatus
@@ -233,6 +236,8 @@ export interface InterviewQuestion {
   requirement: string;
   question: string;
   why_this_question: string;
+  type?: string;
+  expected_signal?: string;
 }
 
 export interface ScoreBreakdown {
@@ -319,4 +324,79 @@ export interface AdversarialSuiteResult {
     detected: number;
     excluded_from_matching: number;
   };
+}
+
+export type VerificationCategory =
+  | "ownership"
+  | "experience"
+  | "depth"
+  | "scale"
+  | "decision_making"
+  | "troubleshooting"
+  | "architecture"
+  | "impact";
+
+export type QuestionStatus =
+  | "generated"
+  | "reviewed"
+  | "asked"
+  | "verified"
+  | "not_verified"
+  | "skipped";
+
+export type VerificationRecordStatus =
+  | "verified"
+  | "partially_verified"
+  | "not_verified"
+  | "inconclusive";
+
+export interface CandidateClaim {
+  id: string;
+  claim: string;
+  skill: string;
+  claimed_level: string;
+  claim_source: string;
+  evidence_strength: number;
+  evidence_level: "VERY_STRONG" | "STRONG" | "MODERATE" | "WEAK" | "INSUFFICIENT" | "NONE";
+  evidence_gaps: string[];
+  verification_required: boolean;
+  consistency_note: string;
+}
+
+export interface VerificationQuestionRecord {
+  id: string;
+  organization_id: string;
+  application_id: string;
+  claim_id: string | null;
+  requirement_id: string | null;
+  question: string;
+  purpose: string;
+  evidence_gap: string;
+  verification_category: VerificationCategory;
+  expected_evidence: string;
+  priority: number;
+  status: QuestionStatus;
+  recruiter_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VerificationRecord {
+  id: string;
+  organization_id: string;
+  application_id: string;
+  claim_id: string | null;
+  question_id: string;
+  recruiter_id: string;
+  verification_status: VerificationRecordStatus;
+  verification_notes: string;
+  verified_at: string;
+  created_at: string;
+}
+
+export interface VerificationSummaryPayload {
+  application_id: string;
+  claims: CandidateClaim[];
+  questions: VerificationQuestionRecord[];
+  verifications: VerificationRecord[];
 }

@@ -25,7 +25,7 @@ def _coverage_pct(points: float, max_points: float) -> float:
     return round(max(0.0, min(1.0, points / max_points)) * 100, 1)
 
 
-def build_job_ranking(org_id: str, job_id: str) -> JobRankingResponse | None:
+def build_job_ranking(org_id: str, job_id: str, blind_mode: bool = False) -> JobRankingResponse | None:
     store = get_store()
     job = store.get_job(org_id, job_id)
     if job is None:
@@ -40,12 +40,9 @@ def build_job_ranking(org_id: str, job_id: str) -> JobRankingResponse | None:
     for application in applications:
         run = store.get_latest_analysis(org_id, application["id"])
         if run is None:
-            # No analysis yet for this candidate — nothing to rank. They
-            # simply don't appear in the ranked list until analysis runs;
-            # this is not a rejection, just "not yet evidenced".
             continue
 
-        analysis = load_candidate_analysis(org_id, application["id"], blind_mode=False)
+        analysis = load_candidate_analysis(org_id, application["id"], blind_mode=blind_mode)
         if analysis is None:
             continue
 

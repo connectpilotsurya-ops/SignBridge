@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useEffect } from "react";
+import { ReactNode } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { Spinner } from "./ui";
+import { QuickSearch } from "./QuickSearch";
 
 function Logo() {
   return (
@@ -48,6 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-bg to-bg text-ink-900 flex flex-col antialiased">
+      <QuickSearch />
       {/* Executive Glass Header */}
       <header className="sticky top-0 z-40 bg-surface/85 backdrop-blur-md border-b border-border/80 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -80,6 +82,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => {
+                const event = new KeyboardEvent("keydown", { key: "k", ctrlKey: true });
+                window.dispatchEvent(event);
+              }}
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs text-ink-500 hover:text-ink-900 transition-colors"
+            >
+              <span>🔍 Quick Search</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-white font-mono text-[10px] text-ink-400 border border-slate-200">
+                Ctrl+K
+              </kbd>
+            </button>
+
             <div className="hidden sm:flex flex-col text-right">
               <span className="text-xs font-bold text-ink-900">{displaySession.email}</span>
               <span className="text-[10px] text-ink-400 font-medium">{displaySession.organizationName}</span>
@@ -124,3 +139,4 @@ export function AppShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

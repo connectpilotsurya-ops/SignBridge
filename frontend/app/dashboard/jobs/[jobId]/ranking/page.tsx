@@ -37,6 +37,9 @@ function whyRankedSentence(c: RankedCandidate, totalCount: number): string {
   return parts.join(", ") + ".";
 }
 
+import { RadarChart } from "@/components/RadarChart";
+import { PipelineWorkflow } from "@/components/PipelineWorkflow";
+
 function ComparePanel({ candidates, onClose }: { candidates: RankedCandidate[]; onClose: () => void }) {
   const metrics: { key: keyof RankedCandidate; label: string }[] = [
     { key: "match_score", label: "Match score" },
@@ -50,63 +53,80 @@ function ComparePanel({ candidates, onClose }: { candidates: RankedCandidate[]; 
   const top = sorted[0];
 
   return (
-    <Card className="p-6 mb-6 border-accent/40">
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="font-display font-semibold text-ink-900">Compare candidates</h2>
-        <button onClick={onClose} className="text-sm text-ink-400 hover:text-ink-900 transition-colors">
-          Close
+    <Card className="p-6 mb-6 border-accent/40 bg-gradient-to-br from-white via-indigo-50/20 to-white shadow-md">
+      <div className="flex items-center justify-between mb-5 pb-3 border-b border-border">
+        <div>
+          <h2 className="font-display font-bold text-base text-ink-900 flex items-center gap-2">
+            <span>🎯</span> Multi-Candidate Radar Matrix Comparison
+          </h2>
+          <p className="text-xs text-ink-500">
+            Side-by-side evidence analysis across 5 multi-dimensional evaluation axes.
+          </p>
+        </div>
+        <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-bold text-ink-600 hover:bg-slate-200 transition-colors">
+          Close Comparison ✕
         </button>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-ink-400 text-xs uppercase tracking-wide">
-              <th className="py-2 pr-4 font-medium">Metric</th>
-              {sorted.map((c) => (
-                <th key={c.application_id} className="py-2 pr-4 font-medium text-ink-700">
-                  #{c.rank} {c.display_label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {metrics.map((m) => (
-              <tr key={String(m.key)} className="border-t border-border">
-                <td className="py-2.5 pr-4 text-ink-500">{m.label}</td>
-                {sorted.map((c) => (
-                  <td key={c.application_id} className="py-2.5 pr-4 font-medium text-ink-900">
-                    {fmt(c[m.key] as number, 1)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+        {/* Radar Chart Overlay */}
+        <div className="flex justify-center bg-white p-4 rounded-2xl border border-border/80 shadow-xs">
+          <RadarChart candidates={sorted} size={300} />
+        </div>
 
-      <div className="mt-6 space-y-2.5">
-        <h3 className="text-xs uppercase tracking-wide text-ink-400 font-medium">
-          Why #{top.rank} ranks above the others
-        </h3>
-        {sorted.slice(1).map((c) => {
-          const scoreDiff = top.match_score - c.match_score;
-          const evidenceDiff = top.evidence_confidence - c.evidence_confidence;
-          const coverageDiff = top.must_have_coverage - c.must_have_coverage;
-          return (
-            <p key={c.application_id} className="text-sm text-ink-500 leading-relaxed">
-              <span className="text-ink-900 font-medium">
-                {top.display_label} ranks above {c.display_label}:
-              </span>{" "}
-              {scoreDiff >= 0 ? "+" : ""}
-              {scoreDiff.toFixed(1)} match score,{" "}
-              {evidenceDiff >= 0 ? "+" : ""}
-              {evidenceDiff.toFixed(1)} evidence confidence,{" "}
-              {coverageDiff >= 0 ? "+" : ""}
-              {coverageDiff.toFixed(1)}% must-have coverage.
-            </p>
-          );
-        })}
+        {/* Metrics Table & Explanations */}
+        <div className="space-y-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-ink-400 text-xs uppercase tracking-wide border-b border-border">
+                  <th className="py-2 pr-4 font-medium">Metric</th>
+                  {sorted.map((c) => (
+                    <th key={c.application_id} className="py-2 pr-4 font-bold text-ink-900">
+                      #{c.rank} {c.display_label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.map((m) => (
+                  <tr key={String(m.key)} className="border-t border-border/60">
+                    <td className="py-2.5 pr-4 text-ink-500 text-xs font-medium">{m.label}</td>
+                    {sorted.map((c) => (
+                      <td key={c.application_id} className="py-2.5 pr-4 font-bold text-ink-900 text-xs">
+                        {fmt(c[m.key] as number, 1)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-border/60">
+            <h3 className="text-[11px] uppercase tracking-wider text-ink-400 font-bold">
+              Why #{top.rank} ranks above the others
+            </h3>
+            {sorted.slice(1).map((c) => {
+              const scoreDiff = top.match_score - c.match_score;
+              const evidenceDiff = top.evidence_confidence - c.evidence_confidence;
+              const coverageDiff = top.must_have_coverage - c.must_have_coverage;
+              return (
+                <p key={c.application_id} className="text-xs text-ink-600 leading-relaxed bg-white p-2.5 rounded-xl border border-slate-200">
+                  <span className="text-ink-900 font-bold">
+                    {top.display_label} ranks above {c.display_label}:
+                  </span>{" "}
+                  {scoreDiff >= 0 ? "+" : ""}
+                  {scoreDiff.toFixed(1)} match score,{" "}
+                  {evidenceDiff >= 0 ? "+" : ""}
+                  {evidenceDiff.toFixed(1)} evidence confidence,{" "}
+                  {coverageDiff >= 0 ? "+" : ""}
+                  {coverageDiff.toFixed(1)}% must-have coverage.
+                </p>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </Card>
   );
@@ -250,13 +270,14 @@ export default function JobRankingPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [comparing, setComparing] = useState(false);
+  const [blindMode, setBlindMode] = useState(true);
 
   const load = useCallback(() => {
     api
-      .get<JobRankingResponse>(`/api/jobs/${jobId}/ranking`)
+      .get<JobRankingResponse>(`/api/jobs/${jobId}/ranking?blind=${blindMode}`)
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : "Could not load the ranking."));
-  }, [jobId]);
+  }, [jobId, blindMode]);
 
   useEffect(() => {
     load();
@@ -299,13 +320,24 @@ export default function JobRankingPage() {
     <div>
       <PageHeader
         title={`AI Ranking — ${data.job_title}`}
-        description="Synthetix HR analyzes every candidate against the job requirements and produces an evidence-backed ranking so recruiters can focus their attention where it matters. This is a ranked pool, not a shortlist — every analyzed candidate appears below, and the recruiter makes the final call."
+        description="Synthetix HR analyzes every candidate against the job requirements and produces an evidence-backed ranking so recruiters can focus their attention where it matters."
         actions={
-          <Link href={`/dashboard/jobs/${jobId}`}>
-            <Button variant="secondary" size="sm">
-              Candidate list view
-            </Button>
-          </Link>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm text-ink-600 font-medium cursor-pointer select-none bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+              <input
+                type="checkbox"
+                checked={blindMode}
+                onChange={(e) => setBlindMode(e.target.checked)}
+                className="rounded border-border-strong text-primary focus:ring-primary/30"
+              />
+              Blind review mode ({blindMode ? "ON - Candidate #Count" : "OFF - Person Names"})
+            </label>
+            <Link href={`/dashboard/jobs/${jobId}`}>
+              <Button variant="secondary" size="sm">
+                Candidate list view
+              </Button>
+            </Link>
+          </div>
         }
       />
 

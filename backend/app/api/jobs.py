@@ -86,6 +86,15 @@ def get_job(job_id: str, ctx: OrgContext = Depends(org_context_dep)):
     return _job_row_to_out(row)
 
 
+@router.delete("/{job_id}")
+def delete_job(job_id: str, ctx: OrgContext = Depends(org_context_dep)):
+    store = get_store()
+    if not store.delete_job(ctx.org_id, job_id):
+        raise HTTPException(status_code=404, detail="Job not found")
+    store.append_audit(ctx.org_id, "job.deleted", "job", job_id, ctx.user.user_id, {})
+    return {"message": "Job pipeline cleared successfully", "job_id": job_id}
+
+
 @router.post("/{job_id}/analyze", response_model=JobOut)
 def analyze_job_requirements(job_id: str, ctx: OrgContext = Depends(org_context_dep)):
     """Spec §8: LLM extracts must-have/preferred requirements from the JD.
@@ -109,14 +118,14 @@ def analyze_job_requirements(job_id: str, ctx: OrgContext = Depends(org_context_
 
 
 @router.get("/{job_id}/ranking", response_model=JobRankingResponse)
-def get_job_ranking(job_id: str, ctx: OrgContext = Depends(org_context_dep)):
+def get_job_ranking(job_id: str, blind: bool = False, ctx: OrgContext = Depends(org_context_dep)):
     """Spec update §17: the primary candidate dashboard. Every analyzed
     candidate is ranked by evidence-backed match_score (never a subset,
     never an AI-picked shortlist) — the deterministic ranking engine
     (app/scoring/ranking.py) sorts and labels; this endpoint never filters
     anyone out. Recruiters decide who advances via the separate
     /selection endpoint below, which this response only reflects."""
-    ranking = build_job_ranking(ctx.org_id, job_id)
+    ranking = build_job_ranking(ctx.org_id, job_id, blind_mode=blind)
     if ranking is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return ranking

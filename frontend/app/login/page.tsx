@@ -8,10 +8,14 @@ import { ApiError } from "@/lib/api";
 import { Button, Card, TextInput } from "@/components/ui";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, signup } = useAuth();
   const router = useRouter();
+
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -20,7 +24,11 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await login(email, password);
+      if (mode === "signin") {
+        await login(email, password);
+      } else {
+        await signup(email, password, organizationName || "Default Org", displayName || email.split("@")[0]);
+      }
       router.push("/dashboard");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
@@ -59,10 +67,66 @@ export default function LoginPage() {
       </div>
 
       <Card className="w-full max-w-md p-8 bg-white/90 backdrop-blur-md shadow-xl border-border">
-        <h1 className="font-display text-2xl font-bold text-ink-900">Welcome back</h1>
-        <p className="text-sm text-ink-500 mt-1 mb-6">Log in to access explainable candidate rankings.</p>
+        {/* Sign In vs Sign Up Tab Toggle */}
+        <div className="flex bg-slate-100 p-1 rounded-xl mb-6 border border-slate-200">
+          <button
+            type="button"
+            onClick={() => {
+              setMode("signin");
+              setError(null);
+            }}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+              mode === "signin"
+                ? "bg-white text-ink-900 shadow-sm"
+                : "text-ink-500 hover:text-ink-900"
+            }`}
+          >
+            🔑 Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode("signup");
+              setError(null);
+            }}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+              mode === "signup"
+                ? "bg-white text-ink-900 shadow-sm"
+                : "text-ink-500 hover:text-ink-900"
+            }`}
+          >
+            ✨ Create Account (Sign Up)
+          </button>
+        </div>
+
+        <h1 className="font-display text-2xl font-bold text-ink-900">
+          {mode === "signin" ? "Welcome back" : "Create Recruiter Workspace"}
+        </h1>
+        <p className="text-sm text-ink-500 mt-1 mb-6">
+          {mode === "signin"
+            ? "Log in to access explainable candidate rankings & interview verifications."
+            : "Set up your organization & recruiter account in one step."}
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === "signup" && (
+            <>
+              <TextInput
+                label="Organization Name"
+                required
+                value={organizationName}
+                onChange={(e) => setOrganizationName(e.target.value)}
+                placeholder="Acme Corp"
+              />
+              <TextInput
+                label="Your Name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Ada Recruiter"
+              />
+            </>
+          )}
+
           <TextInput
             label="Email Address"
             type="email"
@@ -75,13 +139,22 @@ export default function LoginPage() {
             label="Password"
             type="password"
             required
+            minLength={6}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
           />
+
           {error && <p className="text-sm text-danger font-medium">{error}</p>}
+
           <Button type="submit" variant="primary" className="w-full shadow-md shadow-primary/25" disabled={loading}>
-            {loading ? "Signing in…" : "Log in to Dashboard"}
+            {loading
+              ? mode === "signin"
+                ? "Signing in…"
+                : "Creating workspace…"
+              : mode === "signin"
+              ? "Sign In to Dashboard"
+              : "Create Workspace & Sign Up"}
           </Button>
         </form>
 
@@ -101,13 +174,6 @@ export default function LoginPage() {
         </Button>
         <p className="text-xs text-ink-400 mt-2 text-center">
           Includes genuine fit, gap analysis, claim mismatch & forensic white-text gaming.
-        </p>
-
-        <p className="text-sm text-ink-500 mt-6 text-center">
-          Don&rsquo;t have an account?{" "}
-          <Link href="/signup" className="text-primary font-bold hover:underline">
-            Sign up now
-          </Link>
         </p>
       </Card>
     </div>

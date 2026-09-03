@@ -16,6 +16,16 @@ from app.schemas.requirement import JobRequirement
 from app.services.analysis_pipeline import run_analysis
 
 
+def _clean_person_name(file_name: str) -> str:
+    name = file_name.rsplit(".", 1)[0]
+    for tag in ["resume_", "cv_", "_resume", "_cv", "resume", "cv"]:
+        name = name.replace(tag, "").replace(tag.capitalize(), "")
+    name = name.replace("_", " ").replace("-", " ").strip()
+    if not name:
+        return "Candidate Person"
+    return name.title()
+
+
 def process_resume_upload(
     org_id: str,
     user_id: str,
@@ -29,12 +39,13 @@ def process_resume_upload(
     store = get_store()
     storage = get_file_storage()
 
-    candidate_id = store.create_candidate(org_id, candidate_name, candidate_email)
+    person_name = _clean_person_name(file_name) if candidate_name.endswith(".pdf") or not candidate_name or "_" in candidate_name else candidate_name.title()
+    candidate_id = store.create_candidate(org_id, person_name, candidate_email)
     storage_path = storage.save(org_id, file_bytes)
     resume_id = store.create_resume(org_id, candidate_id, file_name, storage_path)
 
     label = store.next_display_label(org_id, job_row["id"])
-    application_id = store.create_application(org_id, job_row["id"], candidate_id, resume_id, label, candidate_name)
+    application_id = store.create_application(org_id, job_row["id"], candidate_id, resume_id, label, person_name)
     store.append_audit(org_id, "resume.uploaded", "resume", resume_id, user_id, {"file_name": file_name})
 
     store.update_resume_status(resume_id, "parsing")

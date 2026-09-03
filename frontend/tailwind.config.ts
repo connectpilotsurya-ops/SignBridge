@@ -6,7 +6,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Ultra-clean White & Iris theme
+        // Executive Ultra-clean White & Iris studio theme
         bg: "#FAFBFD",
         surface: "#FFFFFF",
         "surface-raised": "#F4F5FF",
@@ -55,10 +55,18 @@ const config: Config = {
       borderRadius: {
         xl: "14px",
         "2xl": "20px",
+        "3xl": "28px",
       },
       boxShadow: {
         card: "0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04)",
         pop: "0 12px 32px rgba(93, 95, 239, 0.15)",
+        glass: "0 8px 32px 0 rgba(31, 38, 135, 0.07)",
+        glow: "0 0 20px rgba(93, 95, 239, 0.25)",
+      },
+      backgroundImage: {
+        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
+        "glass-gradient": "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(244,245,255,0.7) 100%)",
+        "brand-gradient": "linear-gradient(135deg, #5D5FEF 0%, #6366F1 50%, #8B5CF6 100%)",
       },
     },
   },
@@ -66,3 +74,4 @@ const config: Config = {
 };
 
 export default config;
+

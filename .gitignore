@@ -1,4 +1,19 @@
+# Environment & Storage
 backend/.env
 backend/*.db
 backend/storage/*
 !backend/storage/.gitkeep
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# IDE & OS
+.DS_Store
+*.log
