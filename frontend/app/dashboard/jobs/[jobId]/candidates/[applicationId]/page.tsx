@@ -159,7 +159,83 @@ export default function CandidateDetailPage() {
           <ScoreGauge score={a.scores.evidence_confidence} label="Evidence confidence" />
           <ScoreGauge score={a.scores.document_integrity} label="Document integrity" />
         </div>
-        <p className="text-sm text-ink-700 leading-relaxed mb-5">{a.executive_summary}</p>
+        <p className="text-sm text-ink-700 leading-relaxed mb-6">{a.executive_summary}</p>
+        
+        {/* Points Calculation Breakdown Table */}
+        <div className="border-t border-border pt-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-ink-900 uppercase tracking-wider">
+              📊 Calculated Score Breakdown (Points / Max Weight)
+            </h3>
+            <span className="text-xs font-bold text-primary">
+              TOTAL: {a.scores.match_score.toFixed(1)} / 100
+            </span>
+          </div>
+
+          <div className="overflow-x-auto mb-5 rounded-xl border border-border bg-surface-raised/30 p-3">
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr className="border-b border-border/80 text-ink-400 font-semibold uppercase tracking-wider">
+                  <th className="pb-2">Scoring Component</th>
+                  <th className="pb-2 text-right">Points Earned</th>
+                  <th className="pb-2 text-right">Max Weight</th>
+                  <th className="pb-2 text-right">Score Share</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40 font-medium text-ink-800">
+                <tr>
+                  <td className="py-2 font-medium">Must-have Requirements</td>
+                  <td className="py-2 text-right font-bold text-ink-900">{a.scores.breakdown.must_have_points.toFixed(1)}</td>
+                  <td className="py-2 text-right text-ink-400">/ {a.scores.breakdown.must_have_max}</td>
+                  <td className="py-2 text-right text-ink-600 font-semibold">{Math.round((a.scores.breakdown.must_have_points / (a.scores.breakdown.must_have_max || 1)) * 100)}%</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium">Preferred Requirements</td>
+                  <td className="py-2 text-right font-bold text-ink-900">{a.scores.breakdown.preferred_points.toFixed(1)}</td>
+                  <td className="py-2 text-right text-ink-400">/ {a.scores.breakdown.preferred_max}</td>
+                  <td className="py-2 text-right text-ink-600 font-semibold">{Math.round((a.scores.breakdown.preferred_points / (a.scores.breakdown.preferred_max || 1)) * 100)}%</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium">Evidence Strength & Grounding</td>
+                  <td className="py-2 text-right font-bold text-ink-900">{a.scores.breakdown.evidence_points.toFixed(1)}</td>
+                  <td className="py-2 text-right text-ink-400">/ {a.scores.breakdown.evidence_max}</td>
+                  <td className="py-2 text-right text-ink-600 font-semibold">{Math.round((a.scores.breakdown.evidence_points / (a.scores.breakdown.evidence_max || 1)) * 100)}%</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium">Experience Trajectory</td>
+                  <td className="py-2 text-right font-bold text-ink-900">{a.scores.breakdown.experience_points.toFixed(1)}</td>
+                  <td className="py-2 text-right text-ink-400">/ {a.scores.breakdown.experience_max}</td>
+                  <td className="py-2 text-right text-ink-600 font-semibold">{Math.round((a.scores.breakdown.experience_points / (a.scores.breakdown.experience_max || 1)) * 100)}%</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium">Transferable Skills</td>
+                  <td className="py-2 text-right font-bold text-ink-900">{a.scores.breakdown.transferability_points.toFixed(1)}</td>
+                  <td className="py-2 text-right text-ink-400">/ {a.scores.breakdown.transferability_max}</td>
+                  <td className="py-2 text-right text-ink-600 font-semibold">{Math.round((a.scores.breakdown.transferability_points / (a.scores.breakdown.transferability_max || 1)) * 100)}%</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium">Adaptability & Velocity</td>
+                  <td className="py-2 text-right font-bold text-ink-900">{a.scores.breakdown.adaptability_points.toFixed(1)}</td>
+                  <td className="py-2 text-right text-ink-400">/ {a.scores.breakdown.adaptability_max}</td>
+                  <td className="py-2 text-right text-ink-600 font-semibold">{Math.round((a.scores.breakdown.adaptability_points / (a.scores.breakdown.adaptability_max || 1)) * 100)}%</td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium">Document Integrity</td>
+                  <td className="py-2 text-right font-bold text-ink-900">{a.scores.breakdown.integrity_points.toFixed(1)}</td>
+                  <td className="py-2 text-right text-ink-400">/ {a.scores.breakdown.integrity_max}</td>
+                  <td className="py-2 text-right text-ink-600 font-semibold">{Math.round((a.scores.breakdown.integrity_points / (a.scores.breakdown.integrity_max || 1)) * 100)}%</td>
+                </tr>
+                <tr className="border-t-2 border-ink-900 font-extrabold text-ink-900">
+                  <td className="py-2.5">TOTAL MATCH SCORE</td>
+                  <td className="py-2.5 text-right text-primary text-sm font-black">{a.scores.match_score.toFixed(1)}</td>
+                  <td className="py-2.5 text-right text-sm text-ink-500">/ 100.0</td>
+                  <td className="py-2.5 text-right text-sm text-primary">{Math.round(a.scores.match_score)}%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-x-8 gap-y-3">
           <ScoreBar label="Must-have requirements" value={a.scores.breakdown.must_have_points} max={a.scores.breakdown.must_have_max} tone="primary" />
           <ScoreBar label="Preferred requirements" value={a.scores.breakdown.preferred_points} max={a.scores.breakdown.preferred_max} tone="accent" />
