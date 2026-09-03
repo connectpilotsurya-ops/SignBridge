@@ -12,7 +12,7 @@ from app.config import Settings
 
 class LocalStorage:
     def __init__(self, settings: Settings):
-        self.root = Path(settings.local_storage_dir)
+        self.root = Path(settings.effective_storage_dir)
         self.root.mkdir(parents=True, exist_ok=True)
 
     def save(self, org_id: str, file_bytes: bytes, suffix: str = ".pdf") -> str:

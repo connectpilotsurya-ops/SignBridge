@@ -220,7 +220,7 @@ class SQLiteStore:
     mode = "sqlite"
 
     def __init__(self, settings: Settings):
-        self.path = Path(settings.sqlite_path)
+        self.path = Path(settings.effective_sqlite_path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._init_schema()
 

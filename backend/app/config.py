@@ -4,7 +4,9 @@ is read from here — services should never check os.environ directly.
 """
 from __future__ import annotations
 
+import os
 from functools import lru_cache
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,14 +28,39 @@ class Settings(BaseSettings):
 
     embedding_model: str = "BAAI/bge-m3"
 
-    api_cors_origins: str = "http://localhost:3000"
+    api_cors_origins: str = "http://localhost:3000,http://localhost:3001"
     max_upload_mb: int = 10
     sqlite_path: str = "./synthetix_demo.db"
     local_storage_dir: str = "./storage"
 
     @property
     def cors_origins(self) -> list[str]:
-        return [o.strip() for o in self.api_cors_origins.split(",") if o.strip()]
+        origins = [o.strip() for o in self.api_cors_origins.split(",") if o.strip()]
+        if "*" in origins or self.demo_mode or os.environ.get("VERCEL") or os.environ.get("NETLIFY"):
+            return ["*"]
+        return origins
+
+    @property
+    def effective_sqlite_path(self) -> str:
+        if os.environ.get("VERCEL") or os.environ.get("NETLIFY") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+            return "/tmp/synthetix_demo.db"
+        try:
+            p = Path(self.sqlite_path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            return self.sqlite_path
+        except Exception:
+            return "/tmp/synthetix_demo.db"
+
+    @property
+    def effective_storage_dir(self) -> str:
+        if os.environ.get("VERCEL") or os.environ.get("NETLIFY") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+            return "/tmp/storage"
+        try:
+            p = Path(self.local_storage_dir)
+            p.mkdir(parents=True, exist_ok=True)
+            return self.local_storage_dir
+        except Exception:
+            return "/tmp/storage"
 
     @property
     def llm_mode(self) -> str:
